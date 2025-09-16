@@ -1,0 +1,235 @@
+-- This script sets up the database schema for the Contact Center Solution Architect.
+-- It is designed for PostgreSQL and reflects the current state of the application.
+
+-- Drop existing enums and tables to start fresh (optional, for development)
+DROP TABLE IF EXISTS call_history CASCADE;
+DROP TABLE IF EXISTS agent_sessions CASCADE;
+DROP TABLE IF EXISTS user_group_members CASCADE;
+DROP TABLE IF EXISTS user_groups CASCADE;
+DROP TABLE IF EXISTS user_campaigns CASCADE;
+DROP TABLE IF EXISTS contacts CASCADE;
+DROP TABLE IF EXISTS campaign_retry_qualifications CASCADE;
+DROP TABLE IF EXISTS campaigns CASCADE;
+DROP TABLE IF EXISTS qualifications CASCADE;
+DROP TABLE IF EXISTS qualification_groups CASCADE;
+DROP TABLE IF EXISTS dids CASCADE;
+DROP TABLE IF EXISTS ivr_flows CASCADE;
+DROP TABLE IF EXISTS sip_trunks CASCADE;
+DROP TABLE IF EXISTS scripts CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TYPE IF EXISTS user_role;
+DROP TYPE IF EXISTS contact_status;
+DROP TYPE IF EXISTS qualification_type;
+DROP TYPE IF EXISTS dialing_mode_enum;
+DROP TYPE IF EXISTS voicemail_action_enum;
+
+-- Create ENUM types for constrained values
+CREATE TYPE user_role AS ENUM ('Agent', 'Superviseur', 'Administrateur');
+CREATE TYPE contact_status AS ENUM ('pending', 'called', 'qualified');
+CREATE TYPE qualification_type AS ENUM ('positive', 'neutral', 'negative');
+CREATE TYPE dialing_mode_enum AS ENUM ('PREDICTIVE', 'PROGRESSIVE', 'MANUAL');
+CREATE TYPE voicemail_action_enum AS ENUM ('HANGUP', 'LEAVE_MESSAGE');
+
+-- Table for Users
+CREATE TABLE users (
+    id VARCHAR(50) PRIMARY KEY,
+    login_id VARCHAR(50) UNIQUE NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    "role" user_role NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    "password" VARCHAR(255) NOT NULL, -- In a real app, this would be a securely hashed password
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_users_role ON users("role");
+
+-- Table for User Groups
+CREATE TABLE user_groups (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Junction table for User-Group memberships (Many-to-Many)
+CREATE TABLE user_group_members (
+    user_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
+    group_id VARCHAR(50) REFERENCES user_groups(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, group_id)
+);
+
+-- Table for Scripts
+CREATE TABLE scripts (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    pages JSONB,
+    start_page_id VARCHAR(50),
+    background_color VARCHAR(20) DEFAULT '#f1f5f9',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table for IVR Flows
+CREATE TABLE ivr_flows (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    nodes JSONB,
+    connections JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table for SIP Trunks
+CREATE TABLE sip_trunks (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    domain VARCHAR(255) NOT NULL,
+    login VARCHAR(100) NOT NULL,
+    "password" VARCHAR(255) NOT NULL, -- In a real app, this should be encrypted
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table for DIDs (Phone Numbers)
+CREATE TABLE dids (
+    id VARCHAR(50) PRIMARY KEY,
+    "number" VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT,
+    trunk_id VARCHAR(50) REFERENCES sip_trunks(id) ON DELETE SET NULL,
+    ivr_flow_id VARCHAR(50) REFERENCES ivr_flows(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_dids_number ON dids("number");
+
+-- Table for Qualification Groups
+CREATE TABLE qualification_groups (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table for Qualifications
+CREATE TABLE qualifications (
+    id VARCHAR(50) PRIMARY KEY,
+    group_id VARCHAR(50) REFERENCES qualification_groups(id) ON DELETE SET NULL,
+    code VARCHAR(20) NOT NULL,
+    description TEXT NOT NULL,
+    "type" qualification_type NOT NULL,
+    is_standard BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX uidx_qualifications_code ON qualifications(code);
+
+-- Table for Campaigns
+CREATE TABLE campaigns (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    script_id VARCHAR(50) REFERENCES scripts(id) ON DELETE SET NULL,
+    caller_id VARCHAR(50) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    qualification_group_id VARCHAR(50) REFERENCES qualification_groups(id) ON DELETE SET NULL,
+    dialing_mode dialing_mode_enum DEFAULT 'PROGRESSIVE',
+    priority INT DEFAULT 5,
+    timezone VARCHAR(100) DEFAULT 'Europe/Paris',
+    calling_days INT[] DEFAULT ARRAY[1,2,3,4,5],
+    calling_start_time TIME DEFAULT '09:00',
+    calling_end_time TIME DEFAULT '20:00',
+    max_abandon_rate NUMERIC(5,2) DEFAULT 3.0,
+    pace_factor NUMERIC(3,1) DEFAULT 1.2,
+    min_agents_before_start INT DEFAULT 3,
+    retry_attempts INT DEFAULT 3,
+    retry_intervals INT[] DEFAULT ARRAY[30,60,120],
+    amd_enabled BOOLEAN DEFAULT true,
+    amd_confidence INT DEFAULT 80,
+    voicemail_action voicemail_action_enum DEFAULT 'HANGUP',
+    recording_enabled BOOLEAN DEFAULT true,
+    recording_beep BOOLEAN DEFAULT true,
+    max_ring_duration INT DEFAULT 25,
+    max_call_duration INT DEFAULT 3600,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Junction table for User-Campaign assignments (Many-to-Many)
+CREATE TABLE user_campaigns (
+    user_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
+    campaign_id VARCHAR(50) REFERENCES campaigns(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, campaign_id)
+);
+
+-- Junction table for Campaign Retry Statuses (Many-to-Many)
+CREATE TABLE campaign_retry_qualifications (
+    campaign_id VARCHAR(50) REFERENCES campaigns(id) ON DELETE CASCADE,
+    qualification_id VARCHAR(50) REFERENCES qualifications(id) ON DELETE CASCADE,
+    PRIMARY KEY (campaign_id, qualification_id)
+);
+
+-- Table for Contacts
+CREATE TABLE contacts (
+    id VARCHAR(50) PRIMARY KEY,
+    campaign_id VARCHAR(50) REFERENCES campaigns(id) ON DELETE CASCADE NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    phone_number VARCHAR(50) NOT NULL,
+    postal_code VARCHAR(20),
+    status contact_status DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_contacts_campaign_id ON contacts(campaign_id);
+
+-- Table for Call History (CDR)
+CREATE TABLE call_history (
+    id VARCHAR(50) PRIMARY KEY,
+    "timestamp" TIMESTAMPTZ NOT NULL,
+    agent_id VARCHAR(50) REFERENCES users(id) ON DELETE SET NULL,
+    campaign_id VARCHAR(50) REFERENCES campaigns(id) ON DELETE SET NULL,
+    caller_number VARCHAR(50),
+    duration INT NOT NULL, -- in seconds
+    qualification_id VARCHAR(50) REFERENCES qualifications(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_call_history_timestamp ON call_history("timestamp");
+CREATE INDEX idx_call_history_agent_id ON call_history(agent_id);
+CREATE INDEX idx_call_history_campaign_id ON call_history(campaign_id);
+
+-- Table for Agent Sessions
+CREATE TABLE agent_sessions (
+    id VARCHAR(50) PRIMARY KEY,
+    agent_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+    login_time TIMESTAMPTZ NOT NULL,
+    logout_time TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_agent_sessions_agent_id ON agent_sessions(agent_id);
+CREATE INDEX idx_agent_sessions_login_time ON agent_sessions(login_time);
+
+
+-- Function to automatically update 'updated_at' timestamps
+CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply the trigger to all tables with 'updated_at'
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON users FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON user_groups FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON scripts FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON ivr_flows FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON sip_trunks FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON dids FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON qualification_groups FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON qualifications FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON campaigns FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+CREATE TRIGGER set_timestamp BEFORE UPDATE ON contacts FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- End of schema definition.
