@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo } from 'react';
 import { features } from './data/features.ts';
 import { mockData } from './data/mockData.ts';
 // Fix: Added missing types for call history and agent sessions which are now part of the app's state.
-import type { Feature, User, SavedScript, IvrFlow, Campaign, Qualification, QualificationGroup, UserGroup, Trunk, Did, BackupLog, BackupSchedule, SystemLog, VersionInfo, ConnectivityService, Contact, CallHistoryRecord, AgentSession, AudioFile } from './types.ts';
+import type { Feature, User, SavedScript, IvrFlow, Campaign, Qualification, QualificationGroup, UserGroup, Trunk, Did, BackupLog, BackupSchedule, SystemLog, VersionInfo, ConnectivityService, Contact, CallHistoryRecord, AgentSession, AudioFile, PlanningEvent, ActivityType } from './types.ts';
 import Sidebar from './components/Sidebar.tsx';
 import FeatureDetail from './components/FeatureDetail.tsx';
 import LoginScreen from './components/LoginScreen.tsx';
@@ -33,6 +32,8 @@ const App: React.FC = () => {
     const [versionInfo] = useState<VersionInfo>(mockData.versionInfo);
     const [connectivityServices] = useState<ConnectivityService[]>(mockData.connectivityServices);
     const [audioFiles, setAudioFiles] = useState<AudioFile[]>(mockData.audioFiles);
+    const [planningEvents, setPlanningEvents] = useState<PlanningEvent[]>(mockData.planningEvents);
+    const [activityTypes] = useState<ActivityType[]>(mockData.activityTypes);
     // Fix: Added state for call history and agent sessions for the reporting dashboard.
     const [callHistory] = useState<CallHistoryRecord[]>(mockData.callHistory);
     const [agentSessions] = useState<AgentSession[]>(mockData.agentSessions);
@@ -40,7 +41,8 @@ const App: React.FC = () => {
     const activeFeature = useMemo(() => features.find(f => f.id === activeFeatureId), [activeFeatureId]);
 
     // --- CRUD Handlers ---
-    const handleSaveUser = (userToSave: User) => {
+    const handleSaveUser = (userToSave: User, groupIds: string[]) => {
+        // 1. Save the user data itself
         setUsers(prevUsers => {
             const index = prevUsers.findIndex(u => u.id === userToSave.id);
             if (index > -1) {
@@ -49,6 +51,25 @@ const App: React.FC = () => {
                 return updatedUsers;
             }
             return [...prevUsers, userToSave];
+        });
+
+        // 2. Update all user groups based on the new assignments for this user
+        setUserGroups(prevGroups => {
+            return prevGroups.map(group => {
+                const wasMember = group.memberIds.includes(userToSave.id);
+                const shouldBeMember = groupIds.includes(group.id);
+
+                if (shouldBeMember && !wasMember) {
+                    // Add user to group
+                    return { ...group, memberIds: [...group.memberIds, userToSave.id] };
+                }
+                if (!shouldBeMember && wasMember) {
+                    // Remove user from group
+                    return { ...group, memberIds: group.memberIds.filter(id => id !== userToSave.id) };
+                }
+                // No change for this group regarding this user
+                return group;
+            });
         });
     };
     
@@ -286,6 +307,22 @@ const App: React.FC = () => {
     const handleDeleteAudioFile = (fileId: string) => {
         setAudioFiles(prev => prev.filter(f => f.id !== fileId));
     };
+    
+    const handleSavePlanningEvent = (eventToSave: PlanningEvent) => {
+        setPlanningEvents(prev => {
+            const index = prev.findIndex(e => e.id === eventToSave.id);
+            if (index > -1) {
+                const updated = [...prev];
+                updated[index] = eventToSave;
+                return updated;
+            }
+            return [...prev, eventToSave];
+        });
+    };
+
+    const handleDeletePlanningEvent = (eventId: string) => {
+        setPlanningEvents(prev => prev.filter(e => e.id !== eventId));
+    };
 
     // --- RENDER LOGIC ---
     if (!currentUser) {
@@ -312,6 +349,8 @@ const App: React.FC = () => {
         versionInfo,
         connectivityServices,
         audioFiles,
+        planningEvents,
+        activityTypes,
         // Fix: Pass callHistory and agentSessions to feature components.
         callHistory,
         agentSessions,
@@ -342,6 +381,8 @@ const App: React.FC = () => {
         onUpdateSchedule: handleUpdateSchedule,
         onSaveAudioFile: handleSaveAudioFile,
         onDeleteAudioFile: handleDeleteAudioFile,
+        onSavePlanningEvent: handleSavePlanningEvent,
+        onDeletePlanningEvent: handleDeletePlanningEvent,
         currentUser
     };
 

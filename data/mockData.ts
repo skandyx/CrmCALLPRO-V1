@@ -18,7 +18,9 @@ import type {
     ConnectivityService,
     CallHistoryRecord,
     AgentSession,
-    AudioFile
+    AudioFile,
+    ActivityType,
+    PlanningEvent
 } from '../types.ts';
 
 const users: User[] = [
@@ -217,11 +219,17 @@ const qualifications: Qualification[] = [
     { id: 'std-96', code: '96', description: 'Indisponible', type: 'neutral', groupId: null, isStandard: true },
     { id: 'std-97', code: '97', description: 'Transfert', type: 'neutral', groupId: null, isStandard: true },
 
-    // Custom qualifications for demonstration, starting from code 100.
+    // Custom qualifications for demonstration
     { id: 'qual-pos-1', code: '100', description: 'Vente réalisée', type: 'positive', groupId: 'qg-1', isStandard: false },
     { id: 'qual-pos-2', code: '101', description: 'Rendez-vous pris', type: 'positive', groupId: 'qg-1', isStandard: false },
-    { id: 'qual-neg-1', code: '102', description: 'Pas intéressé - Prix', type: 'negative', groupId: 'qg-1', isStandard: false },
-    { id: 'qual-rec-1', code: '103', description: 'Paiement effectué', type: 'positive', groupId: 'qg-2', isStandard: false },
+    
+    // New hierarchical qualifications, initially assigned to group 'qg-1' to demonstrate the feature
+    { id: 'qual-parent-1', code: '200', description: 'Contact Argumenté', type: 'neutral', groupId: 'qg-1', isStandard: false, parentId: null },
+    { id: 'qual-neg-1', code: '102', description: 'Pas intéressé - Prix', type: 'negative', groupId: 'qg-1', isStandard: false, parentId: 'qual-parent-1' },
+    { id: 'qual-neg-2', code: '201', description: 'Déjà équipé', type: 'negative', groupId: 'qg-1', isStandard: false, parentId: 'qual-parent-1' },
+    
+    // This one is available for assignment
+    { id: 'qual-rec-1', code: '103', description: 'Paiement effectué', type: 'positive', groupId: null, isStandard: false },
 ];
 
 
@@ -310,6 +318,32 @@ const audioFiles: AudioFile[] = [
     }
 ];
 
+const activityTypes: ActivityType[] = [
+    { id: 'act-1', name: 'Appels - Ventes T4', color: '#4f46e5' },
+    { id: 'act-2', name: 'Pause Déjeuner', color: '#64748b' },
+    { id: 'act-3', name: 'Formation', color: '#f59e0b' },
+    { id: 'act-4', name: 'Réunion d\'équipe', color: '#8b5cf6' },
+];
+
+const today = new Date();
+const getTodayAt = (hour: number, minute: number = 0) => {
+    const d = new Date(today);
+    d.setHours(hour, minute, 0, 0);
+    return d.toISOString();
+}
+
+const planningEvents: PlanningEvent[] = [
+    // Alice's day
+    { id: 'plan-1', agentId: 'user-agent-1', activityId: 'act-1', startDate: getTodayAt(9), endDate: getTodayAt(12) },
+    { id: 'plan-2', agentId: 'user-agent-1', activityId: 'act-2', startDate: getTodayAt(12), endDate: getTodayAt(13) },
+    { id: 'plan-3', agentId: 'user-agent-1', activityId: 'act-1', startDate: getTodayAt(13), endDate: getTodayAt(17) },
+    // Bob's day
+    { id: 'plan-4', agentId: 'user-agent-2', activityId: 'act-1', startDate: getTodayAt(9), endDate: getTodayAt(11) },
+    { id: 'plan-5', agentId: 'user-agent-2', activityId: 'act-3', startDate: getTodayAt(11), endDate: getTodayAt(12, 30) },
+    { id: 'plan-6', agentId: 'user-agent-2', activityId: 'act-2', startDate: getTodayAt(12, 30), endDate: getTodayAt(13, 30) },
+    { id: 'plan-7', agentId: 'user-agent-2', activityId: 'act-1', startDate: getTodayAt(13, 30), endDate: getTodayAt(17) },
+];
+
 
 export const mockData = {
     users,
@@ -328,5 +362,7 @@ export const mockData = {
     connectivityServices,
     callHistory,
     agentSessions,
-    audioFiles
+    audioFiles,
+    activityTypes,
+    planningEvents
 };

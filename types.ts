@@ -1,3 +1,5 @@
+import React from 'react';
+
 export type FeatureId =
   | 'users'
   | 'groups'
@@ -13,8 +15,10 @@ export type FeatureId =
   | 'reporting'
   | 'history'
   | 'sessions'
+  | 'planning'
   | 'maintenance'
-  | 'monitoring';
+  | 'monitoring'
+  | 'help';
 
 export type FeatureCategory = 'Agent' | 'Outbound' | 'Inbound' | 'Sound' | 'Configuration' | 'Supervision & Reporting' | 'Système' | 'Paramètres';
 
@@ -170,6 +174,7 @@ export interface Qualification {
     type: 'positive' | 'neutral' | 'negative';
     groupId: string | null;
     isStandard: boolean;
+    parentId?: string | null;
 }
 
 export interface QualificationGroup {
@@ -327,4 +332,18 @@ export interface AudioFile {
   duration: number; // in seconds
   size: number; // in bytes
   uploadDate: string; // ISO string
+}
+
+export interface ActivityType {
+    id: string;
+    name: string;
+    color: string;
+}
+
+export interface PlanningEvent {
+    id: string;
+    agentId: string;
+    activityId: string;
+    startDate: string; // ISO String
+    endDate: string; // ISO String
 }

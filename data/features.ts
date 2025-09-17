@@ -1,4 +1,3 @@
-
 // data/features.ts
 import type { Feature } from '../types.ts';
 import UserManager from '../components/UserManager.tsx';
@@ -17,6 +16,8 @@ import MaintenanceManager from '../components/MaintenanceManager.tsx';
 import MonitoringDashboard from '../components/MonitoringDashboard.tsx';
 import HistoryViewer from '../components/HistoryViewer.tsx';
 import SessionViewer from '../components/SessionViewer.tsx';
+import HelpCenter from '../components/HelpCenter.tsx';
+import PlanningManager from '../components/PlanningManager.tsx';
 
 export const features: Feature[] = [
     {
@@ -77,6 +78,37 @@ export const features: Feature[] = [
         simplificationTip: {
             title: 'Conseil de Simplification',
             content: "Commencez avec un seul groupe 'Général' contenant tous vos agents. Vous pourrez créer des groupes plus spécifiques plus tard, lorsque vos besoins en routage se complexifieront."
+        }
+    },
+    {
+        id: 'planning',
+        title: 'Plannings',
+        category: 'Agent',
+        description: 'Créez et gérez les plannings hebdomadaires des agents et leurs activités.',
+        component: PlanningManager,
+         userJourney: {
+            title: 'Parcours Utilisateur: Planifier une session de formation',
+            steps: [
+                "Le superviseur se rend dans le menu 'Plannings'.",
+                "Il navigue jusqu'à la semaine souhaitée.",
+                "Il clique sur le créneau du mercredi à 14h00.",
+                "Dans la fenêtre qui s'ouvre, il sélectionne l'agent 'Alice'.",
+                "Il choisit l'activité 'Formation' et ajuste l'heure de fin à 16h00.",
+                "Il sauvegarde, et le nouvel événement apparaît en couleur dans le calendrier."
+            ],
+        },
+        specs: {
+            title: 'Spécifications Techniques',
+            points: [
+                "Vue hebdomadaire du calendrier.",
+                "Filtrage par agent ou vue de tous les agents.",
+                "Types d'activités personnalisables avec code couleur.",
+                "Création, modification et suppression d'événements via une interface modale."
+            ],
+        },
+        simplificationTip: {
+            title: 'Conseil de Simplification',
+            content: "Commencez par définir quelques types d'activités de base comme 'Appels Sortants', 'Pause Déjeuner' et 'Réunion'. Vous pourrez ensuite affiner les plannings avec des activités plus spécifiques."
         }
     },
     {
@@ -498,6 +530,36 @@ export const features: Feature[] = [
         simplificationTip: {
             title: 'Astuce',
             content: "L'indicateur global de santé est le point de départ. S'il n'est pas vert, les autres panneaux vous aideront à trouver la cause. S'il est vert, le problème vient probablement d'ailleurs que l'infrastructure de base."
+        }
+    },
+    {
+        id: 'help',
+        title: 'Aide & Documentation',
+        category: 'Système',
+        description: 'Consultez le guide d\'utilisation pour comprendre le fonctionnement de chaque module de l\'application.',
+        component: HelpCenter,
+        userJourney: {
+            title: 'Parcours: Comprendre la création d\'une campagne',
+            steps: [
+                "Un nouveau manager souhaite lancer sa première campagne mais ne sait pas par où commencer.",
+                "Il clique sur le menu 'Aide & Documentation'.",
+                "Il ouvre la section 'Campagnes Sortantes' dans l'accordéon.",
+                "Il lit l'explication de chaque onglet (Recyclage, Quotas...) et consulte l'image d'exemple.",
+                "Il a maintenant une vision claire du processus et peut commencer la configuration."
+            ],
+        },
+        specs: {
+            title: 'Spécifications',
+            points: [
+                "Contenu organisé par sections thématiques (Utilisateurs, Campagnes, SVI...).",
+                "Chaque section contient une explication textuelle et une illustration visuelle de l'interface.",
+                "Interface de type 'accordéon' pour une navigation simple et rapide.",
+                "Le contenu est directement intégré et ne nécessite pas de connexion internet."
+            ],
+        },
+        simplificationTip: {
+            title: 'Astuce',
+            content: "Utilisez cette page comme une référence rapide. Les illustrations visuelles sont conçues pour vous aider à localiser rapidement les fonctionnalités décrites dans le texte."
         }
     }
 ];
